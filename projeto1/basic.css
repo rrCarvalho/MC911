@@ -1,0 +1,168 @@
+
+@import url("typeface.css");
+
+html,body{
+	color:#000;
+	background:#97908a;
+	margin:0;
+	padding:0;
+}
+
+#frame{
+	width: 1200px;
+	background-color: #ffffff;
+	margin: 50px;
+	padding: 2em 0 2em 0;
+	border-bottom: #444455 7px solid;
+	border-right: #444455 7px solid;
+}
+
+#main-header{
+	width: 100%;
+}
+
+#main-title{
+	width: 95%;
+	color:#333388	;
+	font:oblique normal normal 40pt CrimsonRoman,serif;
+	letter-spacing:-1pt;
+	text-align:center;
+	text-decoration:none;
+	margin: 0;
+	padding: 0;
+}
+#main-date{
+	width: 95%;
+	color:#000000;
+	font:normal normal normal 15pt CACChampagneRegular,serif;
+	letter-spacing: 3pt;
+	text-align:center;
+	text-decoration:none;
+	margin: 0;
+	padding: 0;
+}
+#main-hbar{
+	width: 95%;
+	text-align: center;
+	margin: 0;
+	padding: 0;
+}
+
+#main-table{
+	width: 100%;
+}
+
+div.long-text-div{
+	max-width: 760px;
+	text-align: left;
+	padding: 2em 10% 2em 10%;
+}
+
+div.video{
+	text-align: center;
+	margin: 2em 0;
+}
+
+div.image-inset-div{
+	max-width: 300px;
+	float:right;
+	text-align: center;
+	margin: 0 1em;
+}
+
+p{
+	font:normal normal normal 12pt CrimsonRoman,serif;
+	text-align:justify;
+	text-decoration:none;
+	margin:0;
+	padding:0;
+}
+
+p.image-caption{
+	font-family: BonvenoCFLight,sans-serif;
+	font-size: 9pt;
+	font-style: italic;
+	font-variant: normal;
+	font-weight: normal;
+	text-align: center;
+}
+
+p.abs-author
+p.abs-date
+p.abs-image
+p.abs-souce
+p.abs-abstract
+
+ol,ul,li{
+	font:normal normal normal 12pt CrimsonRoman,serif;
+	text-decoration:none;
+}
+
+
+h1,h2,h3{
+	color: #333388;
+	font-family: BonvenoCFLight,sans-serif;
+	font-style: normal;
+	font-variant: normal;
+	font-weight: normal;
+}
+
+h1{
+	font-size: 18pt;
+}
+
+h2{
+	font-size: 15pt;
+}
+
+h3{
+	font-size: 12pt;
+}
+
+h1.text-title{
+	font:normal normal normal 18pt BonvenoCFLight,sans-serif;
+}
+
+h1.abs-title{
+	font:normal normal normal 18pt BonvenoCFLight,sans-serif;
+	border-top-color: black;
+	border-top-width: 2px;
+	border-top-style: solid;
+}
+
+td{
+	padding: 1em 2em 1em 2em;
+	vertical-align: top;
+}
+
+img.abs-image-img{
+	float:left;
+	margin: 0 1em 0 1em;
+	max-width: 40%;
+}
+
+img.image-inset-img{
+	max-width: 300px;
+	border: 0;
+}
+
+
+a:link{
+    text-decoration:none;
+    color: #333388;
+}
+
+a:visited{
+    text-decoration:none;
+    color: #333388;
+}
+
+a:active{
+    text-decoration:none;
+    color: #333388;
+}
+
+a:hover{
+    text-decoration: underline;
+    color: #333388;
+}
