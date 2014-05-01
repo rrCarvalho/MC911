@@ -57,7 +57,7 @@ public class Codegen extends VisitorAdapter{
 	// Método de entrada do Codegen
 	public String translate(Program p, Env env){	
 		codeGenerator = new Codegen();
-		
+
 		// Preenchendo a Tabela de Símbolos
 		// Quem quiser usar 'env', apenas comente essa linha
 		//codeGenerator.symTab.FillTabSymbol(p);
@@ -178,16 +178,7 @@ public class Codegen extends VisitorAdapter{
 		
 		for (util.List<syntaxtree.MethodDecl> m = n.methodList;
 				m != null; m = m.tail) {
-			
-			List<LlvmValue> args = new LinkedList<LlvmValue>();
-			for (util.List<syntaxtree.Formal> f = m.head.formals;
-					f != null; f = f.tail) {
-				args.add(f.head.accept(this));
-			}
-			
-			assembler.add(new LlvmDefine("@__" + n.name.s + "_" + m.head.name.s,
-					m.head.returnType.accept(this).type, args));
-			
+			m.head.accept(this);
 		}
 		
 		return null;
@@ -196,19 +187,85 @@ public class Codegen extends VisitorAdapter{
 	
 	public LlvmValue visit(VarDecl n)
 	{
+		return new LlvmRegister("%" + n.name.s, n.type.accept(this).type);
+	}
+	
+	public LlvmValue visit(MethodDecl n)
+	{
+		// cria uma lista com os params
+		List<LlvmValue> args = new LinkedList<LlvmValue>();
+		args.add(new LlvmRegister("%this",
+				new LlvmPointer(new LlvmClassType("%class."))));
+		for (util.List<syntaxtree.Formal> f = n.formals;
+				f != null; f = f.tail) {
+			args.add(f.head.accept(this));
+		}
+		
+		// tipo de retorno do metodo
+		LlvmType retType = n.returnType.accept(this).type;
+		
+		// definicao do metodo
+		assembler.add(new LlvmDefine("@__" + n.name.s + "_",
+				retType, args));
+		
+		// entrada do metodo
+		assembler.add(new LlvmLabel(new LlvmLabelValue("entry")));
+		
+		
+		// alocando return
+		LlvmRegister R1 = new LlvmRegister(new LlvmPointer(retType));
+		assembler.add(new LlvmAlloca(R1, retType,
+				new LinkedList<LlvmValue>()));
+		assembler.add(new LlvmStore(new LlvmIntegerLiteral(0), R1));
+		
+		
+		// alocar params
+		for (int i = 1; i < args.size(); i++)
+		{
+			LlvmValue aReg = args.get(i);
+			
+			LlvmValue aR1 = new LlvmRegister(aReg + "_addr", aReg.type);
+			assembler.add(new LlvmAlloca(aR1, aR1.type,
+					new LinkedList<LlvmValue>()));
+	
+			aR1.type = new LlvmPointer(aR1.type);
+			assembler.add(new LlvmStore(aReg, aR1));
+		}
+		
+		
+		// declaracao das vars locais
+		for (util.List<syntaxtree.VarDecl> v = n.locals; v != null;
+				v = v.tail)
+		{
+			LlvmValue vReg = v.head.accept(this);
+			assembler.add(new LlvmAlloca(vReg, vReg.type,
+					new LinkedList<LlvmValue>()));
+		}
+
+		// body
+		for (util.List<syntaxtree.Statement> s = n.body; s != null;
+				s = s.tail)
+		{
+			s.head.accept(this);
+		}
+		
+		// retornando return
+		LlvmRegister R2 = new LlvmRegister(retType);
+		assembler.add(new LlvmLoad(R2,R1));
+		assembler.add(new LlvmRet(R2));
+		assembler.add(new LlvmCloseDefinition());
+		
 		return null;
 	}
 	
-	public LlvmValue visit(MethodDecl n){return null;}
-	
 	public LlvmValue visit(Formal n)
 	{
-		return new LlvmRegister("%"+n.name.s, n.type.accept(this).type);
+		return new LlvmRegister("%" + n.name.s, n.type.accept(this).type);
 	}
 	
 	public LlvmValue visit(IntArrayType n)
 	{
-		return new LlvmRegister(new LlvmArray(0, LlvmPrimitiveType.I32));
+		return new LlvmRegister(new LlvmPointer(LlvmPrimitiveType.I32));
 	}
 	
 	public LlvmValue visit(BooleanType n)
@@ -221,7 +278,26 @@ public class Codegen extends VisitorAdapter{
 		return new LlvmRegister(LlvmPrimitiveType.I32);
 	}
 	
-	public LlvmValue visit(IdentifierType n){return null;}
+	public LlvmValue visit(IdentifierType n)
+	{
+		switch (n.name)
+		{
+		case "i1":
+			return new LlvmRegister(LlvmPrimitiveType.I1);
+		case "i8":
+			return new LlvmRegister(LlvmPrimitiveType.I8);
+		case "i32":
+			return new LlvmRegister(LlvmPrimitiveType.I32);
+		case "void":
+			return new LlvmRegister(LlvmPrimitiveType.VOID);
+		case "label":
+			return new LlvmRegister(LlvmPrimitiveType.LABEL);
+		case "...":
+			return new LlvmRegister(LlvmPrimitiveType.DOTDOTDOT);
+		}
+
+		return null;
+	}
 	
 	public LlvmValue visit(Block n)
 	{
@@ -284,11 +360,18 @@ public class Codegen extends VisitorAdapter{
 	}
 	public LlvmValue visit(Assign n)
 	{
-		System.out.println(n.var.s);
-		n.exp.accept(this);
+		LlvmValue exp = n.exp.accept(this);
+		LlvmRegister var = new LlvmRegister("%" + n.var.s, exp.type);
+		var.type = new LlvmPointer(var.type);
+		assembler.add(new LlvmStore(exp, var));
+		
 		return null;
 	}
-	public LlvmValue visit(ArrayAssign n){return null;}
+	
+	public LlvmValue visit(ArrayAssign n)
+	{
+		return null;
+	}
 	
 	public LlvmValue visit(And n)
 	{
@@ -296,6 +379,7 @@ public class Codegen extends VisitorAdapter{
 		LlvmValue v2 = n.rhs.accept(this);
 		LlvmRegister res = new LlvmRegister(LlvmPrimitiveType.I1);
 		assembler.add(new LlvmLogic(res, LlvmLogic.and, LlvmPrimitiveType.I32, v1, v2));
+		
 		return res;
 	}
 	
@@ -351,7 +435,8 @@ public class Codegen extends VisitorAdapter{
 	
 	public LlvmValue visit(IdentifierExp n)
 	{
-		return null;
+		return new LlvmRegister("%" + n.name.s,
+				n.type.accept(this).type);
 	}
 	
 	public LlvmValue visit(This n){return null;}
@@ -367,10 +452,7 @@ public class Codegen extends VisitorAdapter{
 		return res;
 	}
 	
-	public LlvmValue visit(Identifier n)
-	{
-		return null;
-	}
+	public LlvmValue visit(Identifier n){return null;}
 }
 
 
@@ -434,7 +516,26 @@ class SymTab extends VisitorAdapter
 	public LlvmValue visit(VarDecl n){return null;}
 	public LlvmValue visit(Formal n){return null;}
 	public LlvmValue visit(MethodDecl n){return null;}
-	public LlvmValue visit(IdentifierType n){return null;}
+	public LlvmValue visit(IdentifierType n)
+	{
+		switch (n.name)
+		{
+		case "i1":
+			return new LlvmRegister(LlvmPrimitiveType.I1);
+		case "i8":
+			return new LlvmRegister(LlvmPrimitiveType.I8);
+		case "i32":
+			return new LlvmRegister(LlvmPrimitiveType.I32);
+		case "void":
+			return new LlvmRegister(LlvmPrimitiveType.VOID);
+		case "label":
+			return new LlvmRegister(LlvmPrimitiveType.LABEL);
+		case "...":
+			return new LlvmRegister(LlvmPrimitiveType.DOTDOTDOT);
+		}
+
+		return null;
+	}
 	
 	public LlvmValue visit(IntArrayType n)
 	{

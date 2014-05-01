@@ -6,14 +6,20 @@ class a
 	}}
 }
 
-
 class b
 {
-	int c;
-	int d;
+	int a;
+	int[] b;
 
-	public int Soma(int i, int j)
+	public int met(int i, int j)
 	{
-		return 1;
+		int c;
+		int[] d;
+
+		c = 10;
+
+		return 0;
 	}
+
+
 }
