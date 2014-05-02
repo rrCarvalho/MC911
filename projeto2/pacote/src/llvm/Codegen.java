@@ -209,6 +209,7 @@ public class Codegen extends VisitorAdapter{
 				retType, args));
 		
 		// entrada do metodo
+		LlvmLabelValue.Labelclear();
 		assembler.add(new LlvmLabel(new LlvmLabelValue("entry")));
 		
 		

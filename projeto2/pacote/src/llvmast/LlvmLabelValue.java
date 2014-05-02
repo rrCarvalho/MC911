@@ -11,6 +11,10 @@ public class LlvmLabelValue extends LlvmValue{
     public static void Labeladd(){
 		numberLabel++;
 	}
+    
+    public static void Labelclear(){
+		numberLabel = 0;
+	}
 
     public String toString(){
 	return ""+ value;

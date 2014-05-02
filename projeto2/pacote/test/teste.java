@@ -2,7 +2,9 @@ class a
 {
 	public static void main(String[] args)
 	{{
+		if (10 == 10) { }
 
+		if (20 == 20) { }
 	}}
 }
 
