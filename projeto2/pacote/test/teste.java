@@ -2,7 +2,7 @@ class a
 {
 	public static void main(String[] args)
 	{{
-
+		System.out.println(new c().mC(1));
 	}}
 }
 
@@ -16,7 +16,6 @@ class b
 		int c;
 		int[] d;
 		
-		d = new int[2];
 		
 		return 0;
 	}
@@ -27,4 +26,10 @@ class b
 class c
 {
 	b B;
+	
+	public int mC(int h)
+	{
+		
+		return 1 + 2;
+	}
 }
