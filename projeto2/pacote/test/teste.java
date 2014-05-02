@@ -16,7 +16,47 @@ class b
 		int c;
 		int[] d;
 
-		c = 10;
+		if (1 == 1) {
+
+			c = 10;
+
+			if (2 == 2) {
+
+				while (2 < 1) {
+
+					if (4 == 4) {					
+
+						System.out.println(100);
+
+					}
+
+				} 			
+
+			} else {
+
+				System.out.println(200);
+
+			}	
+		} else {
+
+			if (3 == 3) {
+
+				c = 40;
+			
+			} else {
+
+
+				while (4 < 3) {
+
+					System.out.println(300);
+
+				} 
+
+			}
+
+			c = 60;
+
+		}
 
 		return 0;
 	}

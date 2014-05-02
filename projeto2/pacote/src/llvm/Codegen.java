@@ -320,14 +320,17 @@ public class Codegen extends VisitorAdapter{
 		assembler.add(new LlvmBranch(cond, ifThen, ifElse));
 		
 		//bloco then
+		LlvmLabelValue.Labeladd();
 		assembler.add(new LlvmLabel(ifThen));
 		n.thenClause.accept(this);
 		assembler.add(new LlvmBranch(ifEnd));
 		
 		// bloco else
-		assembler.add(new LlvmLabel(ifElse));
-		n.elseClause.accept(this);
-		assembler.add(new LlvmBranch(ifEnd));
+		if (n.elseClause != null) { 
+			assembler.add(new LlvmLabel(ifElse));
+			n.elseClause.accept(this);
+			assembler.add(new LlvmBranch(ifEnd));
+		}
 		
 		// fim do if
 		assembler.add(new LlvmLabel(ifEnd));
@@ -343,6 +346,7 @@ public class Codegen extends VisitorAdapter{
 		LlvmLabelValue whileEnd = new LlvmLabelValue("WhileEnd");
 
 		// teste while
+		LlvmLabelValue.Labeladd();
 		assembler.add(new LlvmBranch(whileTest));
 		assembler.add(new LlvmLabel(whileTest));
 		LlvmValue cond = n.condition.accept(this);
