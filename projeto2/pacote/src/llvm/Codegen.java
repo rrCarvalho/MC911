@@ -170,15 +170,7 @@ public class Codegen extends VisitorAdapter{
 /* ~~~ ClassDeclSimple ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	public LlvmValue visit(ClassDeclSimple n)
 	{
-		classEnv = symTab.classes.get("%class." + n.name.s);
-		
-		// formando a lista de tipos dos atributos
-		/*List<LlvmType> typeList = new LinkedList<LlvmType>();
-		for (util.List<VarDecl> v = n.varList; v != null; v = v.tail)
-		{
-			typeList.add(v.head.type.accept(this).type);
-		}
-		LlvmStructure structVarTypes = new LlvmStructure(typeList);*/
+		classEnv = symTab.classes.get("%class." + n.name.s + " *");
 
 		// declarando a classe
 		assembler.add(new LlvmConstantDeclaration("%class." + n.name.s,
@@ -238,7 +230,7 @@ public class Codegen extends VisitorAdapter{
 			assembler.add(new LlvmStore(aR0, aR1));
 		}
 		
-		Iterator i = methodEnv.locals.iterator();
+		Iterator<LlvmValue> i = methodEnv.locals.iterator();
 		while (i.hasNext())
 		{
 			LlvmValue vR0 = (LlvmValue)i.next();
@@ -255,11 +247,8 @@ public class Codegen extends VisitorAdapter{
 
 		// retornando return
 		LlvmValue ret0 = new LlvmRegister(methodEnv.retType);
-		LlvmValue ret1 = new LlvmRegister(methodEnv.retType);
 		ret0 = n.returnExp.accept(this);
-		ret0.type = new LlvmPointer(ret0.type);
-		assembler.add(new LlvmLoad(ret1, ret0));
-		assembler.add(new LlvmRet(ret1));
+		assembler.add(new LlvmRet(ret0));
 		assembler.add(new LlvmCloseDefinition());
 
 		return null;
@@ -303,7 +292,8 @@ public class Codegen extends VisitorAdapter{
 /* ~~~ IdentifierType ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	public LlvmValue visit(IdentifierType n)
 	{
-		return new LlvmRegister(new LlvmClassType("%class." + n.name));
+		return new LlvmRegister(new LlvmPointer(
+				new LlvmClassType("%class." + n.name)));
 	}
 
 
@@ -386,8 +376,8 @@ public class Codegen extends VisitorAdapter{
 	public LlvmValue visit(Assign n)
 	{
 		LlvmValue exp = n.exp.accept(this);
-		LlvmValue var = new LlvmRegister("%" + n.var.s, exp.type);
-		var.type = new LlvmPointer(var.type);
+		LlvmValue var = new LlvmRegister("%" + n.var.s,
+				new LlvmPointer(exp.type));
 		assembler.add(new LlvmStore(exp, var));
 
 		return null;
@@ -492,13 +482,11 @@ public class Codegen extends VisitorAdapter{
 	{
 		LlvmType retType = n.type.accept(this).type;
 		LlvmType objType = n.object.type.accept(this).type;
+
 		LlvmRegister ret = new LlvmRegister(retType);
-		LlvmValue tmp = new LlvmRegister(objType);
-		tmp = n.object.accept(this);
 		
 		List<LlvmValue> aList = new LinkedList<LlvmValue>();
-		
-		aList.add(tmp);
+		aList.add(n.object.accept(this));
 		for (util.List<syntaxtree.Exp> a = n.actuals; a != null;
 				a = a.tail) 
 		{
@@ -534,8 +522,22 @@ public class Codegen extends VisitorAdapter{
 /* ~~~ IdentifierExp ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	public LlvmValue visit(IdentifierExp n)
 	{
-		return new LlvmRegister("%" + n.name.s,
-				n.type.accept(this).type);
+		LlvmType vType = n.type.accept(this).type;
+		
+		LlvmValue ret = new LlvmRegister(vType);
+		
+		String varName = "%" + n.name.s;
+		if (methodEnv.formalsNames.contains(n.name.s))
+		{
+			varName += "_addr";
+		}
+		
+		LlvmValue var = new LlvmRegister(varName,  
+				new LlvmPointer(vType));
+			
+		assembler.add(new LlvmLoad(ret, var));
+		
+		return ret;
 	}
 
 
@@ -543,8 +545,7 @@ public class Codegen extends VisitorAdapter{
 /* ~~~ This ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	public LlvmValue visit(This n)
 	{ 
-		return new LlvmRegister("%this", 
-				new LlvmPointer(n.type.accept(this).type));
+		return new LlvmRegister("%this", n.type.accept(this).type);
 	}
 
 
@@ -567,8 +568,8 @@ public class Codegen extends VisitorAdapter{
 		
 		LlvmValue res = new LlvmRegister(new LlvmPointer(
 				new LlvmClassType("%class." + n.className.s)));
-		assembler.add(new LlvmMalloc(res,
-				symTab.classes.get("%class." + n.className.s).classType,
+		assembler.add(new LlvmMalloc(res, symTab.classes.get(
+				"%class." + n.className.s + " *").classType,
 				"%class." + n.className.s));
 		
 		return res;
@@ -625,12 +626,15 @@ class SymTab extends VisitorAdapter
 		{
 			System.out.println("classes: " + e.getKey() + " / " + e.getValue().nameClass
 					+ " " + e.getValue().classType);
+			System.out.println(e.getValue().varNames.size());
 		}
 		
 		for (Map.Entry<String, MethodNode> e : methods.entrySet())
 		{
 			System.out.println("methods: " + e.getKey() + " / " + e.getValue().name
 					+ " " + e.getValue().retType);
+			System.out.println(e.getValue().localsNames.size());
+			System.out.println(e.getValue().formalsNames.size());
 		}
 		
 
@@ -653,7 +657,9 @@ class SymTab extends VisitorAdapter
 	
 	public LlvmValue visit(MainClass n)
 	{
-		classes.put(n.className.s, new ClassNode(n.className.s, null, null));
+		List<String> varNames = new LinkedList<String>();
+		
+		classes.put(n.className.s, new ClassNode(n.className.s, null, null, varNames));
 		
 		return null;
 	}
@@ -664,18 +670,24 @@ class SymTab extends VisitorAdapter
 	{	
 		List<LlvmType> typeList = new LinkedList<LlvmType>();
 		List<LlvmValue> varList = new LinkedList<LlvmValue>();
+		List<String> varNames = new LinkedList<String>();
+		
 		// Constroi TypeList com os tipos das variáveis da Classe (vai formar a Struct da classe)
 		// Constroi VarList com as Variáveis da Classe
-		for (util.List<VarDecl> v = n.varList; v != null; v = v.tail) {
+		for (util.List<VarDecl> v = n.varList; v != null; v = v.tail)
+		{
 			LlvmValue var = v.head.accept(this);
 			typeList.add(var.type);
 			varList.add(var);
-			
+			varNames.add(v.head.name.s);
 		}
 
-		classes.put("%class." + n.name.s, new ClassNode(n.name.s,
-				new LlvmStructure(typeList), varList));
-		classEnv = classes.get("%class." + n.name.s);
+		// preenche a classe
+		classes.put("%class." + n.name.s + " *", new ClassNode(n.name.s,
+				new LlvmStructure(typeList), varList, varNames));
+		
+		// apontador para a classe corrente
+		classEnv = classes.get("%class." + n.name.s + " *");
 
 	    // Percorre n.methodList visitando cada método
 		for (util.List<syntaxtree.MethodDecl> m = n.methodList;
@@ -715,9 +727,14 @@ class SymTab extends VisitorAdapter
 	public LlvmValue visit(MethodDecl n)
 	{
 		LlvmType retType = n.returnType.accept(this).type;
+		
 		List<LlvmValue> aList = new LinkedList<LlvmValue>();
 		List<LlvmValue> vList = new LinkedList<LlvmValue>();
 		
+		List<String> aNames = new LinkedList<String>();
+		List<String> vNames = new LinkedList<String>();
+		
+		// lista de argumentos
 		aList.add(new LlvmRegister("%this",
 				new LlvmPointer(new LlvmClassType("%class." 
 				+ classEnv.nameClass))));
@@ -725,18 +742,23 @@ class SymTab extends VisitorAdapter
 				f != null; f = f.tail) 
 		{
 			aList.add(f.head.accept(this));
+			aNames.add(f.head.name.s);
 		}
 			
+		// lista de vars locais
 		for (util.List<syntaxtree.VarDecl> l = n.locals; l != null;
 					l = l.tail)
 		{
 			vList.add(l.head.accept(this));
+			vNames.add(l.head.name.s);
 		}
 		
+		// preenche metodo
 		methods.put("@__" + n.name.s + "_" + classEnv.nameClass,
 				new MethodNode(
-				"@__" + n.name.s + "_" + classEnv.nameClass, retType,
-				aList, vList));
+						"@__" + n.name.s + "_" + classEnv.nameClass,
+						classEnv.nameClass, retType, aList, vList,
+						aNames, vNames));
 		
 		return null;
 	}
@@ -772,33 +794,48 @@ class SymTab extends VisitorAdapter
 	
 }
 
+
+
 class ClassNode extends LlvmType
 {
 	public String nameClass;
 	public LlvmStructure classType;
 	public List<LlvmValue> varList;
+	public List<String> varNames;
 
-	ClassNode (String nameClass, LlvmStructure classType, List<LlvmValue> varList)
+	ClassNode (String nameClass, LlvmStructure classType,
+			List<LlvmValue> varList, List<String> varNames)
 	{
 		this.nameClass = nameClass;
 		this.classType = classType;
 		this.varList = varList;
+		this.varNames = varNames;
 	}
 }
+
+
 
 class MethodNode
 {
 	public String name;
+	public String className;
 	public LlvmType retType;
 	public List<LlvmValue> formals;
 	public List<LlvmValue> locals;
+	public List<String> formalsNames;
+	public List<String> localsNames;
 
-	MethodNode (String name, LlvmType retType, List<LlvmValue> formals,	List<LlvmValue> locals)
+	MethodNode (String name, String className, LlvmType retType,
+			List<LlvmValue> formals, List<LlvmValue> locals,
+			List<String> formalsNames, List<String> localsNames)
 	{
 		this.name = name;
+		this.className = className;
 		this.retType = retType;
 		this.formals = formals;
 		this.locals = locals;
+		this.formalsNames = formalsNames;
+		this.localsNames = localsNames;
 	}
 }
 

@@ -2,34 +2,32 @@ class a
 {
 	public static void main(String[] args)
 	{{
-		System.out.println(new c().mC(1));
+		System.out.println(new b().m());
+		System.out.println(new b().n(45));
+		System.out.println(new b().dd());
 	}}
 }
 
 class b
 {
-	int a;
-	int[] b;
-
-	public int mA(int i, int[] j)
+	public int m()
 	{
 		int c;
-		int[] d;
 		
+		c = 1;
 		
-		return 0;
+		return 1+2;
 	}
-
-
-}
-
-class c
-{
-	b B;
 	
-	public int mC(int h)
+	public int n(int f)
 	{
-		
-		return 1 + 2;
+		return f;
 	}
+	
+	public int dd()
+	{
+		return 99;
+	}
+
+
 }
