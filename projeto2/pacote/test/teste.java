@@ -2,7 +2,7 @@ class a
 {
 	public static void main(String[] args)
 	{{
-		System.out.println(new c().n());
+		System.out.println(new b().m());
 	}}
 }
 
@@ -10,20 +10,24 @@ class b
 {
 	int[] g;
 	
-	public int m(int[] j, int h)
+	public int m()
 	{
-		int[] c;
-
+		int[] j;
+		int i;
+		
 		j = new int[7];
 		
-		return 0;
+		j[3] = 1+22;
+		
+		
+		
+		i = j.length;
+		
+		return i;
 	}
-}
-
-class c
-{
+	
 	public int n()
 	{
-		return 3334;
+		return 0;
 	}
 }

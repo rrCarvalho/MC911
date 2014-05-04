@@ -402,6 +402,52 @@ public class Codegen extends VisitorAdapter{
 /* ~~~ ArrayAssign ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	public LlvmValue visit(ArrayAssign n)
 	{
+		List<LlvmValue> offsets;
+		
+		LlvmValue value = n.value.accept(this);
+		LlvmValue index = n.index.accept(this);
+
+		String varName = "%" + n.var.s;
+		if (methodEnv.formalsNames.contains(n.var.s))
+		{
+			varName += "_addr";
+		}
+		
+		// apontador para a estrutura contendo a array
+		LlvmValue arrayStructPtr = new LlvmRegister(varName,
+				new LlvmPointer(new LlvmPointer(
+				new LlvmClassType("%struct.array"))));
+		
+		// estrutura do arrray
+		LlvmValue arrayStruct = new LlvmRegister(new LlvmPointer(
+				new LlvmClassType("%struct.array")));
+		assembler.add(new LlvmLoad(arrayStruct, arrayStructPtr));
+		
+		// pegando o apontador para a array propriamente dita
+		LlvmValue arrayStructArray = new LlvmRegister(new LlvmPointer(
+				new LlvmPointer(LlvmPrimitiveType.I32)));
+		offsets = new LinkedList<LlvmValue>();
+		offsets.add(new LlvmIntegerLiteral(0));
+		offsets.add(new LlvmIntegerLiteral(1));
+		assembler.add(new LlvmGetElementPointer(arrayStructArray,
+				arrayStruct, offsets));
+		
+		// array propriamente dita
+		LlvmValue arrayArray = new LlvmRegister(
+				new LlvmPointer(LlvmPrimitiveType.I32));
+		assembler.add(new LlvmLoad(arrayArray, arrayStructArray));
+		
+		// posicao index da array
+		LlvmValue arrayElemPtr = new LlvmRegister(
+				new LlvmPointer(LlvmPrimitiveType.I32));
+		offsets = new LinkedList<LlvmValue>();
+		offsets.add(index);
+		assembler.add(new LlvmGetElementPointer(arrayElemPtr,
+				arrayArray, offsets));
+		
+		// seta o valor na posicao index da array
+		assembler.add(new LlvmStore(value, arrayElemPtr));
+
 		return null;
 	}
 
@@ -478,20 +524,39 @@ public class Codegen extends VisitorAdapter{
 /* ~~~ ArrayLookup ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	public LlvmValue visit(ArrayLookup n)
 	{
-		LlvmType retType = n.type.accept(this).type;
-		LlvmValue ret = new LlvmRegister(retType);
-		LlvmValue array = n.array.accept(this);
+		List<LlvmValue> offsets;
 		
-		List<LlvmValue> offsets = new LinkedList<LlvmValue>();
-		offsets.add(new LlvmNamedValue(n.index.toString(), 
-				LlvmPrimitiveType.I32));
+		LlvmValue index = n.index.accept(this);
+		LlvmValue arrayStruct = n.array.accept(this);
 		
-		LlvmValue elem = new LlvmRegister(new LlvmPointer(retType));
-		assembler.add(new LlvmGetElementPointer(elem, array, offsets));
+		// pegando o apontador para a array propriamente dita
+		LlvmValue arrayStructArray = new LlvmRegister(new LlvmPointer(
+				new LlvmPointer(LlvmPrimitiveType.I32)));
+		offsets = new LinkedList<LlvmValue>();
+		offsets.add(new LlvmIntegerLiteral(0));
+		offsets.add(new LlvmIntegerLiteral(1));
+		assembler.add(new LlvmGetElementPointer(arrayStructArray,
+				arrayStruct, offsets));
 		
-		assembler.add(new LlvmLoad(ret, elem));
+		// array propriamente dita
+		LlvmValue arrayArray = new LlvmRegister(
+				new LlvmPointer(LlvmPrimitiveType.I32));
+		assembler.add(new LlvmLoad(arrayArray, arrayStructArray));
 		
+		// posicao index da array
+		LlvmValue arrayElemPtr = new LlvmRegister(
+				new LlvmPointer(LlvmPrimitiveType.I32));
+		offsets = new LinkedList<LlvmValue>();
+		offsets.add(index);
+		assembler.add(new LlvmGetElementPointer(arrayElemPtr,
+				arrayArray, offsets));
+		
+		// carrega o valor na posicao index da array
+		LlvmValue ret = new LlvmRegister(LlvmPrimitiveType.I32);
+		assembler.add(new LlvmLoad(ret, arrayElemPtr));
+
 		return ret;
+
 	}
 
 
@@ -499,7 +564,24 @@ public class Codegen extends VisitorAdapter{
 /* ~~~ ArrayLength ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	public LlvmValue visit(ArrayLength n)
 	{
-		return null;
+		List<LlvmValue> offsets;
+		
+		LlvmValue arrayStruct = n.array.accept(this);
+		
+		// pegando o apontador para a array propriamente dita
+		LlvmValue arrayStructSize = new LlvmRegister(new LlvmPointer(
+				LlvmPrimitiveType.I32));
+		offsets = new LinkedList<LlvmValue>();
+		offsets.add(new LlvmIntegerLiteral(0));
+		offsets.add(new LlvmIntegerLiteral(0));
+		assembler.add(new LlvmGetElementPointer(arrayStructSize,
+				arrayStruct, offsets));
+		
+		// carrega o tamanho do array
+		LlvmValue ret = new LlvmRegister(LlvmPrimitiveType.I32);
+		assembler.add(new LlvmLoad(ret, arrayStructSize));
+
+		return ret;
 	}
 
 
@@ -582,16 +664,17 @@ public class Codegen extends VisitorAdapter{
 	{
 		List<LlvmValue> offsets;
 		
-		LlvmValue arrayStruct = new LlvmRegister(new LlvmPointer(
-				new LlvmClassType("%struct.array")));
+		LlvmValue arraySize= n.size.accept(this);
 		
 		// tipos contidos na struct.array
 		List<LlvmType> arrayStructTypes = new LinkedList<LlvmType>();
 		arrayStructTypes.add(LlvmPrimitiveType.I32);
 		arrayStructTypes.add(new LlvmPointer(LlvmPrimitiveType.I32));
+		LlvmType arrayStructStruct = new LlvmStructure(arrayStructTypes);
 		
 		// malloc struct.array
-		LlvmType arrayStructStruct = new LlvmStructure(arrayStructTypes);
+		LlvmValue arrayStruct = new LlvmRegister(new LlvmPointer(
+				new LlvmClassType("%struct.array")));
 		assembler.add(new LlvmMalloc(arrayStruct, arrayStructStruct,
 				"%struct.array"));
 		
@@ -599,7 +682,7 @@ public class Codegen extends VisitorAdapter{
 		LlvmValue arrayArray = new LlvmRegister(new LlvmPointer(
 				LlvmPrimitiveType.I32));
 		assembler.add(new LlvmMalloc(arrayArray, LlvmPrimitiveType.I32,
-				n.size.accept(this)));
+				arraySize));
 		
 		// apontando arrayArray para i32* de struct.array
 		LlvmValue arrayStructArray = new LlvmRegister(new LlvmPointer(
@@ -610,6 +693,16 @@ public class Codegen extends VisitorAdapter{
 		assembler.add(new LlvmGetElementPointer(arrayStructArray,
 				arrayStruct, offsets));
 		assembler.add(new LlvmStore(arrayArray, arrayStructArray));
+		
+		// seta o tamanho do array
+		LlvmValue arrayStructSize = new LlvmRegister(new LlvmPointer(
+				LlvmPrimitiveType.I32));
+		offsets = new LinkedList<LlvmValue>();
+		offsets.add(new LlvmIntegerLiteral(0));
+		offsets.add(new LlvmIntegerLiteral(0));
+		assembler.add(new LlvmGetElementPointer(arrayStructSize,
+				arrayStruct, offsets));
+		assembler.add(new LlvmStore(arraySize, arrayStructSize));
 		
 		return arrayStruct;
 	}
