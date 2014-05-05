@@ -2,32 +2,27 @@ class a
 {
 	public static void main(String[] args)
 	{{
-		System.out.println(new b().m());
+		System.out.println(new b().m(10));
 	}}
 }
 
 class b
-{
-	int[] g;
+{	
+	int[] i;
 	
-	public int m()
+	public int m(int ss)
 	{
-		int[] j;
-		int i;
+		int k;
 		
-		j = new int[7];
-		
-		j[3] = 1+22;
-		
-		
-		
-		i = j.length;
-		
-		return i;
+		k = this.n(ss);
+			
+		return k;
 	}
 	
-	public int n()
+	public int n(int sz)
 	{
-		return 0;
+		i = new int[sz];
+		
+		return i.length;
 	}
 }

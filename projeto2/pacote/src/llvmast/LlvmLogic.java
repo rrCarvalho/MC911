@@ -19,19 +19,19 @@ public  class LlvmLogic extends LlvmInstruction
     	this.op2 = op2;
     	switch(code) {
     		case and:
-    			this.tag = "eq";
+    			this.tag = "and";
     			break;
     		case or:
-    			this.tag = "ne";
+    			this.tag = "or";
     			break;
     		case xor:
-    			this.tag = "ugt";
+    			this.tag = "xor";
     			break;
     	}
     }
 
     public String toString()
     {
-		return " " + res + " = " + tag + " " + type + " " + op1 + ", " + op2;
+		return "  " + res + " = " + tag + " " + type + " " + op1 + ", " + op2;
     }
 }
