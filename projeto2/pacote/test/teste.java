@@ -6,17 +6,15 @@ class a
 	}}
 }
 
-class b extends c
+class b extends e
 {	
 	int[] i;
 	
 	public int m(int ss)
 	{
-		int k;
-		
-		x = 2;
+		x = new int[ss];
 			
-		return x;
+		return x.length;
 	}
 	
 	public int n(int sz)
@@ -28,5 +26,15 @@ class b extends c
 
 class c
 {
-	int x;
+	int[] x;
+}
+
+class d extends c
+{
+	
+}
+
+class e extends d
+{
+	
 }

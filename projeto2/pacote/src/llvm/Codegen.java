@@ -88,6 +88,19 @@ public class Codegen extends VisitorAdapter{
 	}
 
 	public LlvmValue visit(Program n){
+		
+		// tipo array
+		assembler.add(new LlvmConstantDeclaration("%struct.array",
+				"type { i32, i32 * }"));
+		
+		// definicao das classes
+		for (Entry<String, ClassNode> e : symTab.classes.entrySet())
+		{
+			assembler.add(new LlvmConstantDeclaration(
+					"%class." + e.getValue().nameClass,
+					"type " + e.getValue().classType));
+		}
+		
 		n.mainClass.accept(this);
 
 		for (util.List<ClassDecl> c = n.classList; c != null; c = c.tail)
@@ -114,10 +127,6 @@ public class Codegen extends VisitorAdapter{
 		assembler.add(new LlvmLoad(R2,R1));
 		assembler.add(new LlvmRet(R2));
 		assembler.add(new LlvmCloseDefinition());
-		
-		// tipo array
-		assembler.add(new LlvmConstantDeclaration("%struct.array",
-				"type { i32, i32 * }"));
 		
 		return null;
 	}
@@ -178,10 +187,6 @@ public class Codegen extends VisitorAdapter{
 	{
 		classEnv = symTab.classes.get("%class." + n.name.s + " *");
 
-		// declarando a classe
-		assembler.add(new LlvmConstantDeclaration("%class." + n.name.s,
-				"type " + classEnv.classType));
-
 		// percorrendo a lista de metodos
 		for (util.List<syntaxtree.MethodDecl> m = n.methodList;
 				m != null; m = m.tail)
@@ -226,10 +231,6 @@ public class Codegen extends VisitorAdapter{
 	public LlvmValue visit(ClassDeclExtends n)
 	{
 		classEnv = symTab.classes.get("%class." + n.name.s + " *");
-
-		// declarando a classe
-		assembler.add(new LlvmConstantDeclaration("%class." + n.name.s,
-				"type " + classEnv.classType));
 
 		// percorrendo a lista de metodos
 		for (util.List<syntaxtree.MethodDecl> m = n.methodList;
@@ -285,7 +286,8 @@ public class Codegen extends VisitorAdapter{
 				superConstArgs));
 		
 		LlvmValue superAttr = new LlvmRegister(new LlvmPointer(
-				new LlvmClassType("%class." + classEnv.superSayan)));
+				new LlvmPointer(new LlvmClassType(
+				"%class." + classEnv.superSayan))));
 		LlvmValue currClass = new LlvmRegister("%this",
 				new LlvmPointer(new LlvmClassType(
 				"%class." + classEnv.nameClass)));
@@ -840,16 +842,16 @@ public class Codegen extends VisitorAdapter{
 		String varName = "%" + n.s;
 		LlvmValue var = new LlvmRegister(varName, varType);
 		
+		if (methodEnv.localsMap.containsKey(n.s))
+		{
+			varType = methodEnv.localsMap.get(n.s).type;
+			var = new LlvmRegister(varName, varType);
+		}
+		
 		if (methodEnv.formalsMap.containsKey(n.s))
 		{
 			varName += "_addr";
 			varType = methodEnv.formalsMap.get(n.s).type;
-			var = new LlvmRegister(varName, varType);
-		}
-		
-		if (methodEnv.localsMap.containsKey(n.s))
-		{
-			varType = methodEnv.localsMap.get(n.s).type;
 			var = new LlvmRegister(varName, varType);
 		}
 		
@@ -878,52 +880,64 @@ public class Codegen extends VisitorAdapter{
 		}
 		
 		if (!classEnv.superSayan.equals(""))
-		{	
+		{
 			ClassNode superSayan = symTab.classes.get(
 					"%class." + classEnv.superSayan + " *");
-			
-			if (superSayan.varMap.containsKey(n.s))
-			{
-				int index = 0;
-				for (Map.Entry<String, LlvmValue> a
-						: superSayan.varMap.entrySet())
+			while (true)
+			{	
+				if (superSayan.varMap.containsKey(n.s))
 				{
-					if (a.getKey().equals(n.s)) {
-						break;
+					int index = 0;
+					for (Map.Entry<String, LlvmValue> a
+							: superSayan.varMap.entrySet())
+					{
+						if (a.getKey().equals(n.s)) {
+							break;
+						}
+						index++;
 					}
-					index++;
+					
+					varType = superSayan.varMap.get(n.s).type;
+					var = new LlvmRegister(varType);
+					
+					LlvmValue currClass = new LlvmRegister("%this",
+							new LlvmPointer(new LlvmClassType(
+							"%class." + classEnv.nameClass)));
+					LlvmValue superSrcPtr = new LlvmRegister(
+							new LlvmPointer(new LlvmClassType(
+							"%class." + superSayan.nameClass)));
+					
+					List<LlvmValue> offsets = new LinkedList<LlvmValue>();
+					offsets.add(new LlvmIntegerLiteral(0));
+					offsets.add(new LlvmIntegerLiteral(0));
+					
+					assembler.add(new LlvmGetElementPointer(superSrcPtr,
+							currClass, offsets));
+					
+					LlvmValue superSrc = new LlvmRegister(
+							new LlvmPointer(new LlvmClassType(
+							"%class." + superSayan.nameClass)));
+					superSrcPtr.type = new LlvmPointer(superSrcPtr.type);
+					
+					assembler.add(new LlvmLoad(superSrc, superSrcPtr));
+					
+					offsets = new LinkedList<LlvmValue>();
+					offsets.add(new LlvmIntegerLiteral(0));
+					offsets.add(new LlvmIntegerLiteral(index));
+					
+					assembler.add(new LlvmGetElementPointer(var, superSrc,
+							offsets));
 				}
 				
-				varType = superSayan.varMap.get(n.s).type;
-				var = new LlvmRegister(varType);
-				
-				LlvmValue currClass = new LlvmRegister("%this",
-						new LlvmPointer(new LlvmClassType(
-						"%class." + classEnv.nameClass)));
-				LlvmValue superSrcPtr = new LlvmRegister(
-						new LlvmPointer(new LlvmClassType(
-						"%class." + superSayan.nameClass)));
-				
-				List<LlvmValue> offsets = new LinkedList<LlvmValue>();
-				offsets.add(new LlvmIntegerLiteral(0));
-				offsets.add(new LlvmIntegerLiteral(0));
-				
-				assembler.add(new LlvmGetElementPointer(superSrcPtr,
-						currClass, offsets));
-				
-				LlvmValue superSrc = new LlvmRegister(
-						new LlvmPointer(new LlvmClassType(
-						"%class." + superSayan.nameClass)));
-				superSrcPtr.type = new LlvmPointer(superSrcPtr.type);
-				
-				assembler.add(new LlvmLoad(superSrc, superSrcPtr));
-				
-				offsets = new LinkedList<LlvmValue>();
-				offsets.add(new LlvmIntegerLiteral(0));
-				offsets.add(new LlvmIntegerLiteral(index));
-				
-				assembler.add(new LlvmGetElementPointer(var, superSrc,
-						offsets));
+				if (!superSayan.superSayan.equals(""))
+				{
+					superSayan = symTab.classes.get(
+							"%class." + superSayan.superSayan + " *");
+				}
+				else
+				{
+					break;
+				}
 			}
 		}
 		
@@ -952,8 +966,8 @@ class SymTab extends VisitorAdapter
     
     public LlvmValue FillTabSymbol(Program n)
     {
-    	this.classes = new HashMap<String, ClassNode>();
-    	this.methods = new HashMap<String, MethodNode>();
+    	this.classes = new LinkedHashMap<String, ClassNode>();
+    	this.methods = new LinkedHashMap<String, MethodNode>();
     	
 		n.accept(this);
 		
@@ -981,14 +995,6 @@ class SymTab extends VisitorAdapter
 	
 	public LlvmValue visit(MainClass n)
 	{
-		HashMap<String, LlvmValue> varMap = 
-				new LinkedHashMap<String, LlvmValue>();
-		
-		String superSayan = "";
-		
-		classes.put(n.className.s, new ClassNode(n.className.s, null, 
-				superSayan, varMap, null));
-		
 		return null;
 	}
 
