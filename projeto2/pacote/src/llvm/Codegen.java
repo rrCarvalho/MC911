@@ -40,6 +40,7 @@ import syntaxtree.*;
 import llvmast.*;
 
 import java.util.*;
+import java.util.Map.Entry;
 
 public class Codegen extends VisitorAdapter{
 	private List<LlvmInstruction> assembler;
@@ -224,6 +225,84 @@ public class Codegen extends VisitorAdapter{
 /* ~~~ ClassDeclExtends ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 	public LlvmValue visit(ClassDeclExtends n)
 	{
+		classEnv = symTab.classes.get("%class." + n.name.s + " *");
+
+		// declarando a classe
+		assembler.add(new LlvmConstantDeclaration("%class." + n.name.s,
+				"type " + classEnv.classType));
+
+		// percorrendo a lista de metodos
+		for (util.List<syntaxtree.MethodDecl> m = n.methodList;
+				m != null; m = m.tail)
+		{
+			m.head.accept(this);
+		}
+		
+		// criando instrucoes do construtor
+		MethodNode classC = symTab.methods.get("@__" + n.name.s + "_"
+				+ n.name.s);
+
+		// definicao do construtor
+		assembler.add(new LlvmDefine(classC.name, classC.retType,
+				classC.formals));
+
+		// entrada do construtor
+		LlvmLabelValue.Labelclear();
+		assembler.add(new LlvmLabel(new LlvmLabelValue("entry")));
+
+		// alocar params
+		for (int i = 0; i < classC.formals.size(); i++)
+		{
+			LlvmValue aR0 = classC.formals.get(i);
+			LlvmValue aR1 = new LlvmRegister(aR0 + "_addr", aR0.type);
+			assembler.add(new LlvmAlloca(aR1, aR1.type,
+					new LinkedList<LlvmValue>()));
+			aR1.type = new LlvmPointer(aR1.type);
+			assembler.add(new LlvmStore(aR0, aR1));
+		}
+		
+		// criando objeto da classe pai		
+		LlvmValue thisClassPtr = new LlvmRegister("%this_addr",
+				new LlvmPointer(new LlvmPointer(new LlvmClassType(
+				"%class." + classEnv.nameClass))));
+		
+		LlvmValue thisClass = new LlvmRegister(new LlvmPointer(
+				new LlvmClassType("%class." + classEnv.nameClass)));
+		
+		assembler.add(new LlvmLoad(thisClass, thisClassPtr));
+		
+		LlvmValue superClassPtr = new LlvmRegister(new LlvmPointer(
+				new LlvmClassType("%class." + classEnv.superSayan)));
+		
+		List<LlvmValue> superConstArgs = new LinkedList<LlvmValue>();
+		superConstArgs.add(superClassPtr);
+		
+		assembler.add(new LlvmBitcast(superClassPtr, thisClassPtr,
+				new LlvmPointer(new LlvmClassType(
+				"%class." + classEnv.superSayan))));
+		assembler.add(new LlvmCall(LlvmPrimitiveType.VOID,
+				"@__" + classEnv.superSayan + "_" +classEnv.superSayan,
+				superConstArgs));
+		
+		LlvmValue superAttr = new LlvmRegister(new LlvmPointer(
+				new LlvmClassType("%class." + classEnv.superSayan)));
+		LlvmValue currClass = new LlvmRegister("%this",
+				new LlvmPointer(new LlvmClassType(
+				"%class." + classEnv.nameClass)));
+				
+		List<LlvmValue> offsets = new LinkedList<LlvmValue>();
+		offsets.add(new LlvmIntegerLiteral(0));
+		offsets.add(new LlvmIntegerLiteral(0));
+		
+		assembler.add(new LlvmGetElementPointer(superAttr,
+				currClass, offsets));
+		assembler.add(new LlvmStore(superClassPtr, superAttr));
+		
+		// retornando return
+		LlvmValue ret0 = new LlvmRegister("", LlvmPrimitiveType.VOID);
+		assembler.add(new LlvmRet(ret0));
+		assembler.add(new LlvmCloseDefinition());
+
 		return null;
 	}
 
@@ -728,6 +807,13 @@ public class Codegen extends VisitorAdapter{
 				"%class." + n.className.s + " *").classType,
 				"%class." + n.className.s));
 		
+		// structoris acciendum
+		List<LlvmValue> args = new LinkedList<LlvmValue>();
+		args.add(res);
+		assembler.add(new LlvmCall(LlvmPrimitiveType.VOID,
+				"@__" + n.className.s + "_" + n.className.s,
+				args));
+		
 		return res;
 	}
 
@@ -791,6 +877,56 @@ public class Codegen extends VisitorAdapter{
 			assembler.add(new LlvmGetElementPointer(var, src, offsets));
 		}
 		
+		if (!classEnv.superSayan.equals(""))
+		{	
+			ClassNode superSayan = symTab.classes.get(
+					"%class." + classEnv.superSayan + " *");
+			
+			if (superSayan.varMap.containsKey(n.s))
+			{
+				int index = 0;
+				for (Map.Entry<String, LlvmValue> a
+						: superSayan.varMap.entrySet())
+				{
+					if (a.getKey().equals(n.s)) {
+						break;
+					}
+					index++;
+				}
+				
+				varType = superSayan.varMap.get(n.s).type;
+				var = new LlvmRegister(varType);
+				
+				LlvmValue currClass = new LlvmRegister("%this",
+						new LlvmPointer(new LlvmClassType(
+						"%class." + classEnv.nameClass)));
+				LlvmValue superSrcPtr = new LlvmRegister(
+						new LlvmPointer(new LlvmClassType(
+						"%class." + superSayan.nameClass)));
+				
+				List<LlvmValue> offsets = new LinkedList<LlvmValue>();
+				offsets.add(new LlvmIntegerLiteral(0));
+				offsets.add(new LlvmIntegerLiteral(0));
+				
+				assembler.add(new LlvmGetElementPointer(superSrcPtr,
+						currClass, offsets));
+				
+				LlvmValue superSrc = new LlvmRegister(
+						new LlvmPointer(new LlvmClassType(
+						"%class." + superSayan.nameClass)));
+				superSrcPtr.type = new LlvmPointer(superSrcPtr.type);
+				
+				assembler.add(new LlvmLoad(superSrc, superSrcPtr));
+				
+				offsets = new LinkedList<LlvmValue>();
+				offsets.add(new LlvmIntegerLiteral(0));
+				offsets.add(new LlvmIntegerLiteral(index));
+				
+				assembler.add(new LlvmGetElementPointer(var, superSrc,
+						offsets));
+			}
+		}
+		
 		return var;
 	}
 
@@ -821,6 +957,11 @@ class SymTab extends VisitorAdapter
     	
 		n.accept(this);
 		
+		for (Entry<String, ClassNode> c : classes.entrySet())
+		{
+			System.out.println(c.getValue().nameClass + " >> " + c.getValue().superSayan);
+		}
+		
 		return null;
 	}
 
@@ -843,8 +984,10 @@ class SymTab extends VisitorAdapter
 		HashMap<String, LlvmValue> varMap = 
 				new LinkedHashMap<String, LlvmValue>();
 		
+		String superSayan = "";
+		
 		classes.put(n.className.s, new ClassNode(n.className.s, null, 
-				varMap, null));
+				superSayan, varMap, null));
 		
 		return null;
 	}
@@ -852,7 +995,7 @@ class SymTab extends VisitorAdapter
 	
 	
 	public LlvmValue visit(ClassDeclSimple n)
-	{	
+	{			
 		HashMap<String, LlvmValue> varMap =
 				new LinkedHashMap<String, LlvmValue>();
 		List<LlvmType> typeList = new LinkedList<LlvmType>();
@@ -871,9 +1014,12 @@ class SymTab extends VisitorAdapter
 			varMap.put(v.head.name.s, var);
 		}
 
+		String superSayan = "";
+		
 		// preenche a classe
 		classes.put("%class." + n.name.s + " *", new ClassNode(n.name.s,
-				new LlvmStructure(typeList), varMap, varList));
+				new LlvmStructure(typeList), superSayan, varMap,
+				varList));
 		
 		// apontador para a classe corrente
 		classEnv = classes.get("%class." + n.name.s + " *");
@@ -911,6 +1057,66 @@ class SymTab extends VisitorAdapter
 	
 	public LlvmValue visit(ClassDeclExtends n)
 	{
+		HashMap<String, LlvmValue> varMap =
+				new LinkedHashMap<String, LlvmValue>();
+		List<LlvmType> typeList = new LinkedList<LlvmType>();
+		List<LlvmValue> varList = new LinkedList<LlvmValue>();
+		
+		// nova lista de arrays
+		arrayNames = new LinkedList<String>();
+		
+		// Constroi TypeList com os tipos das variáveis da Classe (vai formar a Struct da classe)
+		// Constroi VarList com as Variáveis da Classe
+		LlvmValue superVar = new LlvmNamedValue("%super",
+				new LlvmPointer(new LlvmClassType(
+				"%class." + n.superClass.s)));
+		typeList.add(superVar.type);
+		varList.add(superVar);
+		varMap.put(n.superClass.s, superVar);
+		for (util.List<VarDecl> v = n.varList; v != null; v = v.tail)
+		{
+			LlvmValue var = v.head.accept(this);
+			typeList.add(var.type);
+			varList.add(var);
+			varMap.put(v.head.name.s, var);
+		}
+
+		String superSayan = n.superClass.s;
+		
+		// preenche a classe
+		classes.put("%class." + n.name.s + " *", new ClassNode(n.name.s,
+				new LlvmStructure(typeList), superSayan, varMap,
+				varList));
+		
+		// apontador para a classe corrente
+		classEnv = classes.get("%class." + n.name.s + " *");
+
+	    // Percorre n.methodList visitando cada método
+		for (util.List<syntaxtree.MethodDecl> m = n.methodList;
+				m != null; m = m.tail)
+		{
+			m.head.accept(this);
+		}
+		
+		// criando o construtor da classe
+		String constName = "@__"+ classEnv.nameClass + "_"
+				+ classEnv.nameClass;
+		HashMap<String, LlvmValue> formalsMap = 
+				new LinkedHashMap<String, LlvmValue>(); 
+		formalsMap.put("%this", new LlvmNamedValue("%this", 
+				new LlvmPointer(new LlvmClassType(
+				"%class." + n.name.s))));
+		List<LlvmValue> aList = new LinkedList<LlvmValue>();
+		aList.add(new LlvmNamedValue("%this", new LlvmPointer(
+				new LlvmClassType("%class." + n.name.s))));
+		HashMap<String, LlvmValue> localsMap = 
+				new LinkedHashMap<String, LlvmValue>(); 
+		List<LlvmValue> vList = new LinkedList<LlvmValue>();
+		methods.put(constName,
+				new MethodNode(constName, classEnv.nameClass,
+				LlvmPrimitiveType.VOID, formalsMap, localsMap, aList,
+				vList));
+
 		return null;
 	}
 	
@@ -1021,14 +1227,17 @@ class ClassNode extends LlvmType
 {
 	public String nameClass;
 	public LlvmStructure classType;
+	public String superSayan;
 	public HashMap<String, LlvmValue> varMap;
 	public List<LlvmValue> varList;
 
-	ClassNode (String nameClass, LlvmStructure classType,
-			HashMap<String, LlvmValue> varMap, List<LlvmValue> varList)
+	ClassNode (String nameClass, LlvmStructure classType, 
+			String superSayan, HashMap<String, LlvmValue> varMap,
+			List<LlvmValue> varList)
 	{
 		this.nameClass = nameClass;
 		this.classType = classType;
+		this.superSayan = superSayan;
 		this.varMap = varMap;
 		this.varList = varList;
 	}

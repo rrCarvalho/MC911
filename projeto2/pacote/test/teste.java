@@ -6,7 +6,7 @@ class a
 	}}
 }
 
-class b
+class b extends c
 {	
 	int[] i;
 	
@@ -14,15 +14,19 @@ class b
 	{
 		int k;
 		
-		k = this.n(ss);
+		x = 2;
 			
-		return k;
+		return x;
 	}
 	
 	public int n(int sz)
 	{
-		i = new int[sz];
 		
 		return i.length;
 	}
+}
+
+class c
+{
+	int x;
 }

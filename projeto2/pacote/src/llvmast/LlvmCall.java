@@ -2,6 +2,7 @@ package llvmast;
 import java.util.*;
 
 public  class LlvmCall extends LlvmInstruction{
+	private boolean noLhs;
     public LlvmRegister lhs;
     public LlvmType type;
     public LlvmPointer fnType = null;
@@ -15,6 +16,7 @@ public  class LlvmCall extends LlvmInstruction{
 	this.fnType = fnType;
 	this.fnName = fnName;
 	this.args = args;
+	this.noLhs = false;
     }
 
     public LlvmCall(LlvmRegister lhs, LlvmType type, String fnName, List<LlvmValue> args){
@@ -22,6 +24,14 @@ public  class LlvmCall extends LlvmInstruction{
 	this.type = type;
 	this.fnName = fnName;
 	this.args = args;
+	this.noLhs = false;
+    }
+    
+    public LlvmCall(LlvmType type, String fnName, List<LlvmValue> args){
+	this.type = type;
+	this.fnName = fnName;
+	this.args = args;
+	this.noLhs = true;
     }
 
     public LlvmCall(LlvmRegister lhs, LlvmType type, List<LlvmType> fnType, String fnName, List<LlvmValue> args) {
@@ -29,7 +39,8 @@ public  class LlvmCall extends LlvmInstruction{
     	this.type = type;
     	this.fnTypeList = fnType;
     	this.fnName = fnName;
-    	this.args = args;	
+    	this.args = args;
+    	this.noLhs = false;
     	}
 
 	public String toString(){
@@ -58,6 +69,11 @@ public  class LlvmCall extends LlvmInstruction{
 			fnTypeResult = fnType.toString();
 	}
 
+	if (noLhs)
+	{
+		return "  " + "call " + type + " " + fnTypeResult + " " + fnName +  "(" + arguments + ")";
+	}
+	
 	return "  " + lhs + " = " + "call " + type + " " + fnTypeResult + " " + fnName +  "(" + arguments + ")"; 
     }
 }
