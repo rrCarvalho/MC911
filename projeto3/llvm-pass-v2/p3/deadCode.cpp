@@ -38,14 +38,20 @@ namespace {
 			bool has_changed = false;
 			bool is_iterating = true;
 
+			// work list to do constant propagation
+			std::set<Instruction*> WorkList;
 			// instructions map; tuple (instruction, live)
 			DenseMap<Instruction*, bool> inst_map;
 			for (Function::iterator b = F.begin(), be = F.end(); b != be; ++b) {
 				for (BasicBlock::iterator i = b->begin(), ie = b->end(); i != ie; ++i) {
+					WorkList.insert(&*i);
 					if (isa<Instruction>(i))
 						inst_map.insert(std::make_pair(&*i, false));
 				}
 			}
+
+			DataLayout *TD = getAnalysisIfAvailable<DataLayout>();
+			TargetLibraryInfo *TLI = &getAnalysis<TargetLibraryInfo>();
 
 			while (is_iterating) {
 				is_iterating = false;
@@ -94,15 +100,7 @@ namespace {
 				i++;
 			}
 
-
-
-			std::set<Instruction*> WorkList;
-			for(inst_iterator i = inst_begin(F), e = inst_end(F); i != e; ++i) {
-				WorkList.insert(&*i);
-			}
-			DataLayout *TD = getAnalysisIfAvailable<DataLayout>();
-			TargetLibraryInfo *TLI = &getAnalysis<TargetLibraryInfo>();
-
+			// iterating over the work list to remove dead code and do constant folding
 			while (!WorkList.empty()) {
 				Instruction *I = *WorkList.begin();
 				WorkList.erase(WorkList.begin());
@@ -117,12 +115,10 @@ namespace {
 					}
 			}
 
-
-
 			return has_changed;
 		}// runOnFunction method closure
 	};// deadCode class closure
 }
 
 char deadCode::ID = 0;
-static RegisterPass<deadCode> X("deadCode", "Dead Code Elimination", false, false);
+static RegisterPass<deadCode> X("dce-p3", "Dead Code Elimination", false, false);
