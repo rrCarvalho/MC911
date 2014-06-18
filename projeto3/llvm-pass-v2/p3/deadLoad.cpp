@@ -20,13 +20,9 @@ namespace {
     deadLoad() : FunctionPass(ID) {}  
     virtual bool runOnFunction(Function &F)
     {
-      errs() << "deadLoad: ";
-      errs() << F.getName() << '\n';
-
+      
       for (Function::iterator b = F.begin(), be = F.end(); b != be; ++b)
       {
-        errs() << "Basic block (name=" << b->getName() << ") has " << b->size() << " instructions.\n";
-
         deadLoad::isLastInstStore = false;
         deadLoad::lastStoreOp0 = NULL;
         deadLoad::lastStoreOp1 = NULL;
@@ -46,13 +42,6 @@ namespace {
 
                 if (deadLoad::lastStoreOp1->getName() == v->getName())
                 {
-                  errs() << "USELESS LOAD\n";
-                  errs() << "  LD_OP " << v->getName();
-                  errs() << " == ST_OP " << deadLoad::lastStoreOp1->getName();
-                  errs() << " replace with " << deadLoad::lastStoreOp0->getName();
-                  errs() << *i << "\n";
-                  errs() << "\n";
-
                   i->replaceAllUsesWith(deadLoad::lastStoreOp0);
                   Instruction &deadInst = *i;
                   i--;
